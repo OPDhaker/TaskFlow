@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Next.js output
+.next/
+out/
+
+# Build/test/cache
+coverage/
+dist/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*

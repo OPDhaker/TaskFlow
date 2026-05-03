@@ -1,0 +1,38 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# Local agent/cache dirs
+.codex/
+
+# Backend artifacts
+backend/build/
+backend/tasks.db
+backend/*.db
+backend/*.db-*
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/dist/
+frontend/.turbo/
+frontend/.vercel/
+frontend/*.tsbuildinfo
