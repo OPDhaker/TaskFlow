@@ -17,8 +17,7 @@ void TaskManager::hydrate(const std::vector<std::shared_ptr<Task>>& tasks) {
 std::vector<std::shared_ptr<Task>> TaskManager::getTasks() const { return snapshot(); }
 
 std::shared_ptr<Task> TaskManager::addTask(const std::shared_ptr<Task>& task) {
-  auto before = snapshot();
-  auto candidate = before;
+  auto candidate = snapshot();
   auto nextTask = task->clone();
   validateDependencies(candidate, nextTask->getDependsOn(), nextTask->getId());
   nextTask->execute(*this, nextTask->getStatus());
@@ -26,14 +25,11 @@ std::shared_ptr<Task> TaskManager::addTask(const std::shared_ptr<Task>& task) {
   ensureAcyclic(candidate);
   tasks_ = candidate;
   rebuildPriorityQueue();
-  auto after = snapshot();
-  recordHistory("create", before, after);
   return findTaskOrThrow(nextTask->getId())->clone();
 }
 
 std::shared_ptr<Task> TaskManager::updateTask(const std::string& id, const nlohmann::json& patch) {
-  auto before = snapshot();
-  auto candidate = before;
+  auto candidate = snapshot();
   const auto it = std::find_if(candidate.begin(), candidate.end(), [&](const auto& task) { return task->getId() == id; });
   if (it == candidate.end()) {
     throw std::out_of_range("Task not found");
@@ -74,8 +70,6 @@ std::shared_ptr<Task> TaskManager::updateTask(const std::string& id, const nlohm
   ensureAcyclic(candidate);
   tasks_ = candidate;
   rebuildPriorityQueue();
-  auto after = snapshot();
-  recordHistory("update", before, after);
   return findTaskOrThrow(id)->clone();
 }
 
@@ -84,32 +78,25 @@ void TaskManager::removeTask(const std::string& id) {
     throw std::logic_error("Task is referenced by another dependency");
   }
 
-  auto before = snapshot();
   const auto originalSize = tasks_.size();
   tasks_.erase(std::remove_if(tasks_.begin(), tasks_.end(), [&](const auto& task) { return task->getId() == id; }), tasks_.end());
   if (tasks_.size() == originalSize) {
     throw std::out_of_range("Task not found");
   }
   rebuildPriorityQueue();
-  auto after = snapshot();
-  recordHistory("delete", before, after);
 }
 
 std::shared_ptr<Task> TaskManager::startTaskTimer(const std::string& id) {
-  auto before = snapshot();
   auto task = findTaskOrThrow(id);
   if (task->isTimerRunning()) {
     throw std::logic_error("Timer already running");
   }
   task->setActiveStartedAt(nowUtc());
   rebuildPriorityQueue();
-  auto after = snapshot();
-  recordHistory("start", before, after);
   return task->clone();
 }
 
 std::shared_ptr<Task> TaskManager::stopTaskTimer(const std::string& id) {
-  auto before = snapshot();
   auto task = findTaskOrThrow(id);
   if (!task->isTimerRunning()) {
     throw std::logic_error("Timer not running");
@@ -118,31 +105,29 @@ std::shared_ptr<Task> TaskManager::stopTaskTimer(const std::string& id) {
   task->addTimeSpentSeconds(time_utils::elapsedSeconds(task->getActiveStartedAt(), stoppedAt));
   task->setActiveStartedAt("");
   rebuildPriorityQueue();
-  auto after = snapshot();
-  recordHistory("stop", before, after);
   return task->clone();
 }
 
-RestoreResult TaskManager::undoLast() {
-  if (undoStack_.empty()) {
-    throw std::logic_error("Nothing to undo");
+bool TaskManager::rollupRunningTimers(const std::string& nowIso) {
+  const auto currentIso = nowIso.empty() ? nowUtc() : nowIso;
+  bool changed = false;
+  for (const auto& task : tasks_) {
+    if (!task->isTimerRunning()) continue;
+    const auto delta = time_utils::elapsedSeconds(task->getActiveStartedAt(), currentIso);
+    if (delta > 0) {
+      task->addTimeSpentSeconds(delta);
+      changed = true;
+    }
+    task->setActiveStartedAt(currentIso);
   }
-  const auto entry = undoStack_.top();
-  undoStack_.pop();
-  redoStack_.push(entry);
-  restoreFrom(entry.before);
-  return {entry.action, tasks_.size()};
+  if (changed) {
+    rebuildPriorityQueue();
+  }
+  return changed;
 }
 
-RestoreResult TaskManager::redoLast() {
-  if (redoStack_.empty()) {
-    throw std::logic_error("Nothing to redo");
-  }
-  const auto entry = redoStack_.top();
-  redoStack_.pop();
-  undoStack_.push(entry);
-  restoreFrom(entry.after);
-  return {entry.action, tasks_.size()};
+bool TaskManager::hasRunningTimers() const {
+  return std::any_of(tasks_.begin(), tasks_.end(), [](const auto& task) { return task->isTimerRunning(); });
 }
 
 std::shared_ptr<Task> TaskManager::getNextPriority() const {
@@ -234,17 +219,6 @@ void TaskManager::rebuildPriorityQueue() {
   for (const auto& task : tasks_) {
     priorityQueue_.push(task);
   }
-}
-
-void TaskManager::recordHistory(const std::string& action, const std::vector<std::shared_ptr<Task>>& before, const std::vector<std::shared_ptr<Task>>& after) {
-  undoStack_.push({action, before, after});
-  redoStack_ = {};
-}
-
-void TaskManager::restoreFrom(const std::vector<std::shared_ptr<Task>>& state) {
-  tasks_.clear();
-  for (const auto& task : state) tasks_.push_back(task->clone());
-  rebuildPriorityQueue();
 }
 
 void TaskManager::validateDependencies(const std::vector<std::shared_ptr<Task>>& tasks, const std::vector<std::string>& dependsOn, const std::string& selfId) const {

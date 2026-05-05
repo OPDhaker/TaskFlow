@@ -17,7 +17,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-11 w-full cursor-pointer items-center justify-between rounded-full border border-slate-300/80 bg-white/82 px-4 py-2 text-sm text-foreground ring-offset-background backdrop-blur-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/14 dark:bg-white/6",
+      "flex h-11 w-full cursor-pointer items-center justify-between rounded-full border border-white/14 bg-white/6 px-4 py-2 text-sm text-foreground ring-offset-background backdrop-blur-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
       className,
     )}
     {...props}
@@ -58,7 +58,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-[1.35rem] border border-slate-200/90 bg-popover/96 text-popover-foreground shadow-[0_32px_90px_-34px_rgba(4,36,48,0.34)] backdrop-blur-2xl dark:border-white/12 dark:bg-slate-950/92",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-[1.35rem] border border-white/12 bg-slate-950/92 text-popover-foreground shadow-[0_32px_90px_-34px_rgba(4,36,48,0.34)] backdrop-blur-2xl",
         position === "popper" && "translate-y-1",
         className,
       )}

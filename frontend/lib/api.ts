@@ -13,16 +13,11 @@ export type Task = {
   createdAt: string;
   timeSpentSeconds: number;
   isTimerRunning: boolean;
+  activeStartedAt?: string;
   deadlineHours?: number;
   intervalDays?: number;
   nextOccurrence?: string;
   dependsOn?: string[];
-};
-
-export type UndoRedoResponse = {
-  action: string;
-  taskCount: number;
-  tasks: Task[];
 };
 
 const BASE_URL = "/api";
@@ -36,6 +31,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as { error?: string };
+      throw new Error(payload.error || `Request failed: ${response.status}`);
+    }
     const errorText = await response.text();
     throw new Error(errorText || `Request failed: ${response.status}`);
   }
@@ -57,8 +57,6 @@ export const api = {
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
   startTask: (id: string) => request<Task>(`/tasks/${id}/start`, { method: "POST" }),
   stopTask: (id: string) => request<Task>(`/tasks/${id}/stop`, { method: "POST" }),
-  undo: () => request<UndoRedoResponse>("/undo", { method: "POST" }),
-  redo: () => request<UndoRedoResponse>("/redo", { method: "POST" }),
   getNextTask: () => request<Task | Record<string, never>>("/tasks/next"),
   getDependencyOrder: () => request<Task[]>("/tasks/order"),
   exportCsv: async () => {

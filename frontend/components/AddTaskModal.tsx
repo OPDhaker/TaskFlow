@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { Task, TaskPriority, TaskType } from "../lib/api";
+import { priorityLabel } from "../lib/tasks";
 
 const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
@@ -87,7 +88,7 @@ export function AddTaskModal({
             <select className="rounded-2xl border border-line bg-panelSoft px-4 py-3" value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority)}>
               {priorities.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {priorityLabel[item]}
                 </option>
               ))}
             </select>

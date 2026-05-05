@@ -2,7 +2,7 @@
 
 import { Task, TaskStatus } from "../lib/api";
 import { cn } from "../lib/utils";
-import { formatDate, formatSeconds, priorityTone, statusLabel, typeLabel } from "../lib/tasks";
+import { formatDate, priorityLabel, priorityTone, statusLabel, typeLabel } from "../lib/tasks";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -21,6 +21,7 @@ export function TaskBoard({
   onDelete,
   onStatusChange,
   onToggleTimer,
+  getTrackedLabel,
 }: {
   tasks: Task[];
   highlightedTaskId: string | null;
@@ -29,10 +30,11 @@ export function TaskBoard({
   onDelete: (task: Task) => void;
   onStatusChange: (task: Task, status: TaskStatus) => void;
   onToggleTimer: (task: Task) => void;
+  getTrackedLabel: (task: Task) => string;
 }) {
   return (
     <section className="glass-panel overflow-hidden">
-      <div className="border-b border-slate-200/90 px-6 py-5 dark:border-white/12">
+      <div className="border-b border-white/12 px-6 py-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="eyebrow">Workspace</p>
@@ -42,7 +44,7 @@ export function TaskBoard({
         </div>
       </div>
 
-      <div className="divide-y divide-slate-200/70 dark:divide-white/10">
+      <div className="divide-y divide-white/10">
         {groups.map((group) => {
           const sectionTasks = tasks.filter((task) => task.status === group.status);
 
@@ -58,7 +60,7 @@ export function TaskBoard({
               {sectionTasks.length === 0 ? (
                 <div className="py-4 text-sm text-muted-foreground">No tasks.</div>
               ) : (
-                <div className="overflow-hidden rounded-[1.4rem] border border-slate-200/90 bg-white/72 dark:border-white/12 dark:bg-white/6">
+                <div className="overflow-hidden rounded-[1.4rem] border border-white/12 bg-white/6">
                   {sectionTasks.map((task, index) => (
                     <article
                       key={task.id}
@@ -73,10 +75,10 @@ export function TaskBoard({
                       }}
                       className={cn(
                         "grid cursor-pointer gap-4 px-4 py-4 transition-[background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 md:grid-cols-[minmax(0,1.45fr)_minmax(210px,0.7fr)_minmax(240px,0.85fr)] md:items-center",
-                        index > 0 ? "border-t border-slate-200/80 dark:border-white/10" : "",
+                        index > 0 ? "border-t border-white/10" : "",
                         highlightedTaskId === task.id || selectedTaskId === task.id
                           ? "bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--ring)/0.2)]"
-                          : "bg-white/60 hover:bg-white/92 dark:bg-white/0 dark:hover:bg-white/8",
+                          : "bg-white/0 hover:bg-white/8",
                       )}
                       style={{ viewTransitionName: `task-card-${task.id}` }}
                     >
@@ -84,10 +86,10 @@ export function TaskBoard({
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <Badge variant="subtle">{typeLabel[task.type]}</Badge>
                           <span
-                            className={cn("inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", priorityTone[task.priority])}
+                            className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.01em]", priorityTone[task.priority])}
                             style={{ viewTransitionName: `task-priority-${task.id}` }}
                           >
-                            {task.priority}
+                            {priorityLabel[task.priority]}
                           </span>
                         </div>
                         <h4 className="truncate text-base font-semibold tracking-[-0.03em]" style={{ viewTransitionName: `task-title-${task.id}` }}>
@@ -98,7 +100,7 @@ export function TaskBoard({
 
                       <div className="grid gap-2 text-sm text-muted-foreground">
                         <MetaLine label="Due" value={formatDate(task.dueDate)} />
-                        <MetaLine label="Tracked" value={formatSeconds(task.timeSpentSeconds)} viewName={`task-timer-${task.id}`} />
+                        <MetaLine label="Tracked" value={getTrackedLabel(task)} viewName={`task-timer-${task.id}`} />
                         {task.nextOccurrence ? <MetaLine label="Next" value={formatDate(task.nextOccurrence)} /> : null}
                         {task.dependsOn?.length ? <MetaLine label="Depends" value={`${task.dependsOn.length} task${task.dependsOn.length > 1 ? "s" : ""}`} /> : null}
                       </div>

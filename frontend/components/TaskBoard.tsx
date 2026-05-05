@@ -1,6 +1,8 @@
 "use client";
 
 import { Task, TaskStatus } from "../lib/api";
+import { priorityLabel, priorityTone } from "../lib/tasks";
+import { cn } from "../lib/utils";
 
 const columns: { status: TaskStatus; label: string }[] = [
   { status: "TODO", label: "To Do" },
@@ -56,7 +58,7 @@ export function TaskBoard({
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-slate-200">
                     <span className="rounded-full bg-cyan/15 px-2 py-1">{task.type}</span>
-                    <span className="rounded-full bg-mint/15 px-2 py-1">{task.priority}</span>
+                    <span className={cn("rounded-full px-2 py-1 normal-case tracking-normal", priorityTone[task.priority])}>{priorityLabel[task.priority]}</span>
                   </div>
                   <div className="mt-4 grid gap-2 text-sm text-slate-300">
                     <span>Due {new Date(task.dueDate).toLocaleString()}</span>

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import { Task, TaskPriority, TaskType } from "../lib/api";
+import { priorityLabel } from "../lib/tasks";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -85,7 +86,7 @@ export function CreateTaskDialog({
     >
       <DialogContent className="max-w-3xl p-0">
         <form onSubmit={handleSubmit} className="flex flex-col gap-0">
-          <DialogHeader className="border-b border-slate-200/90 px-6 py-6 dark:border-white/12 sm:px-8">
+          <DialogHeader className="border-b border-white/12 px-6 py-6 sm:px-8">
             <DialogTitle className="section-title">Create Task</DialogTitle>
             <DialogDescription>Same backend contract. Arctic workspace shell.</DialogDescription>
           </DialogHeader>
@@ -107,7 +108,7 @@ export function CreateTaskDialog({
               label="Priority"
               value={priority}
               onValueChange={(value) => setPriority(value as TaskPriority)}
-              items={priorities.map((item) => ({ value: item, label: item }))}
+              items={priorities.map((item) => ({ value: item, label: priorityLabel[item] }))}
             />
 
             <div className="flex flex-col gap-2 md:col-span-2">
@@ -157,7 +158,7 @@ export function CreateTaskDialog({
             {type === "dependent" ? (
               <div className="flex flex-col gap-3 md:col-span-2">
                 <Label>Dependencies</Label>
-                <div className="grid gap-3 rounded-[1.4rem] border border-slate-200/90 bg-slate-50/88 p-4 dark:border-white/12 dark:bg-white/6 sm:grid-cols-2">
+                <div className="grid gap-3 rounded-[1.4rem] border border-white/12 bg-white/6 p-4 sm:grid-cols-2">
                   {tasks.length === 0 ? <p className="text-sm text-muted-foreground">Create tasks first.</p> : null}
                   {tasks.map((task) => (
                     <label
@@ -166,7 +167,7 @@ export function CreateTaskDialog({
                         "flex cursor-pointer items-center gap-3 rounded-[1rem] border px-3 py-3 text-sm transition-colors",
                         dependsOn.includes(task.id)
                           ? "border-primary/30 bg-primary/10"
-                          : "border-slate-200/90 bg-white/88 dark:border-white/12 dark:bg-white/6",
+                          : "border-white/12 bg-white/6",
                       )}
                     >
                       <Checkbox
@@ -183,7 +184,7 @@ export function CreateTaskDialog({
             ) : null}
           </div>
 
-          <DialogFooter className="border-t border-slate-200/90 px-6 py-5 dark:border-white/12 sm:px-8">
+          <DialogFooter className="border-t border-white/12 px-6 py-5 sm:px-8">
             <Button
               type="button"
               variant="outline"

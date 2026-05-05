@@ -3,6 +3,8 @@ node_modules/
 
 # Next.js output
 .next/
+.next-dev/
+.next-prod/
 out/
 
 # Build/test/cache

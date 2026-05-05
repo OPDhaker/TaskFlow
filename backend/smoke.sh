@@ -15,8 +15,6 @@ curl -sS -X PATCH "$base_url/tasks/$urgent_id" -H "Content-Type: application/jso
 curl -sS -X POST "$base_url/tasks/$basic_id/start"
 sleep 1
 curl -sS -X POST "$base_url/tasks/$basic_id/stop"
-curl -sS -X POST "$base_url/undo"
-curl -sS -X POST "$base_url/redo"
 curl -sS "$base_url/tasks/next"
 curl -sS "$base_url/tasks/order"
 curl -sS "$base_url/export"

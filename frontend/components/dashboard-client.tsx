@@ -2,9 +2,11 @@
 
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { Task, TaskStatus, api } from "../lib/api";
-import { filterAndSortTasks, formatSeconds, getNextSuggestion, getTaskMetrics, priorityOptions, statusLabel, statusOptions, type SortKey } from "../lib/tasks";
+import { cn } from "../lib/utils";
+import { filterAndSortTasks, formatTrackedDuration, getEffectiveTrackedMs, getNextSuggestion, getTaskMetrics, priorityLabel, priorityOptions, priorityTone, statusLabel, statusOptions, type SortKey } from "../lib/tasks";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { DependencyPanel } from "./dependency-panel";
 import { TaskBoard } from "./task-board";
@@ -36,9 +38,9 @@ export function DashboardClient({
   const [tasks, setTasks] = useState(initialTasks);
   const [order, setOrder] = useState(initialOrder);
   const [dependencyError, setDependencyError] = useState(initialDependencyError);
-  const [error, setError] = useState<string | null>(null);
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [isPending, startTransition] = useTransition();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -52,10 +54,10 @@ export function DashboardClient({
   const deferredQuery = useDeferredValue(q);
 
   const visibleTasks = useMemo(
-    () => filterAndSortTasks(tasks, { q: deferredQuery, status, priority, sort }),
-    [deferredQuery, priority, sort, status, tasks],
+    () => filterAndSortTasks(tasks, { q: deferredQuery, status, priority, sort }, nowMs),
+    [deferredQuery, nowMs, priority, sort, status, tasks],
   );
-  const metrics = useMemo(() => getTaskMetrics(tasks), [tasks]);
+  const metrics = useMemo(() => getTaskMetrics(tasks, nowMs), [nowMs, tasks]);
   const nextSuggestion = useMemo(() => getNextSuggestion(tasks), [tasks]);
   const selectedTask = useMemo(() => tasks.find((task) => task.id === selectedTaskId) ?? null, [selectedTaskId, tasks]);
   const relatedTasks = useMemo(
@@ -71,7 +73,6 @@ export function DashboardClient({
 
   async function refreshAll() {
     try {
-      setError(null);
       let nextDependencyError: string | null = null;
       const [taskList, dependencyOrder] = await Promise.all([
         api.getTasks(),
@@ -84,17 +85,16 @@ export function DashboardClient({
       setOrder(dependencyOrder);
       setDependencyError(nextDependencyError);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
 
   async function runMutation(callback: () => Promise<unknown>) {
     try {
-      setError(null);
       await callback();
       await refreshAll();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
 
@@ -111,6 +111,19 @@ export function DashboardClient({
     }
   }, [pathname, router, searchParams, selectedTask, selectedTaskId]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 100);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!tasks.some((task) => task.isTimerRunning)) return;
+    const interval = window.setInterval(() => {
+      void refreshAll();
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [tasks]);
+
   async function handleWhatNext() {
     try {
       const task = await api.getNextTask();
@@ -119,7 +132,7 @@ export function DashboardClient({
         window.setTimeout(() => setHighlightedTaskId(null), 5000);
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
 
@@ -133,7 +146,7 @@ export function DashboardClient({
       link.click();
       URL.revokeObjectURL(url);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
 
@@ -141,13 +154,6 @@ export function DashboardClient({
     <main id="main-content" className="workspace-main">
       <div className="flex flex-col gap-10">
         <section className="workspace-intro">
-          <div className="flex flex-col gap-5">
-            <Badge className="w-fit">Task ops</Badge>
-            <div className="flex flex-col gap-4">
-              <h2 className="hero-title max-w-5xl noise-cut">Calm queue control for work that needs structure, not clutter.</h2>
-              <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">One workspace for task flow, timing, dependencies, and direct action. Open any row to work the detail surface without leaving the list.</p>
-            </div>
-          </div>
           <div className="flex flex-wrap gap-3">
             <Button size="lg" onClick={() => setDialogOpen(true)}>
               New task
@@ -191,7 +197,7 @@ export function DashboardClient({
               placeholder="All priorities"
               items={[
                 { value: "ALL", label: "All priorities" },
-                ...priorityOptions.map((option) => ({ value: option, label: option })),
+                ...priorityOptions.map((option) => ({ value: option, label: priorityLabel[option] })),
               ]}
             />
             <FilterSelect
@@ -211,16 +217,10 @@ export function DashboardClient({
 
         <section className="summary-strip">
           <MetricLine label="Completion" value={`${metrics.completionRate}%`} detail={`${metrics.done} of ${metrics.total} complete`} />
-          <MetricLine label="Focus time" value={formatSeconds(metrics.trackedSeconds)} detail={`${metrics.activeTimers} active timer${metrics.activeTimers === 1 ? "" : "s"}`} />
+          <MetricLine label="Focus time" value={formatTrackedDuration(metrics.trackedMs, metrics.activeTimers > 0)} detail={`${metrics.activeTimers} active timer${metrics.activeTimers === 1 ? "" : "s"}`} />
           <MetricLine label="Overdue" value={String(metrics.overdue)} detail="Needs action" />
           <MetricLine label="Blocked" value={String(metrics.blocked)} detail="Dependency locked" />
         </section>
-
-        {error ? (
-          <div role="alert" className="glass-alert">
-            {error}
-          </div>
-        ) : null}
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.62fr)]">
           <TaskBoard
@@ -236,6 +236,7 @@ export function DashboardClient({
             }}
             onStatusChange={(task, nextStatus: TaskStatus) => runMutation(() => api.updateTask(task.id, { status: nextStatus }))}
             onToggleTimer={(task) => runMutation(() => (task.isTimerRunning ? api.stopTask(task.id) : api.startTask(task.id)))}
+            getTrackedLabel={(task) => formatTrackedDuration(getEffectiveTrackedMs(task, nowMs), task.isTimerRunning)}
           />
 
           <div className="flex flex-col gap-6">
@@ -251,7 +252,9 @@ export function DashboardClient({
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">{nextSuggestion.description || "No description."}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{nextSuggestion.priority}</Badge>
+                    <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.01em]", priorityTone[nextSuggestion.priority])}>
+                      {priorityLabel[nextSuggestion.priority]}
+                    </span>
                     <Badge variant="outline">{statusLabel[nextSuggestion.status]}</Badge>
                   </div>
                 </button>
@@ -261,34 +264,11 @@ export function DashboardClient({
             </section>
 
             <DependencyPanel tasks={order} error={dependencyError} />
-
-            <section className="glass-panel p-6">
-              <div className="mb-5 flex flex-col gap-2">
-                <p className="eyebrow">History</p>
-                <h3 className="section-title">Undo lane</h3>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={() => runMutation(() => api.undo())}>
-                  Undo
-                </Button>
-                <Button variant="outline" onClick={() => runMutation(() => api.redo())}>
-                  Redo
-                </Button>
-              </div>
-            </section>
           </div>
         </section>
 
         <div className="command-float">
-          <div className="glass-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => runMutation(() => api.undo())}>
-                Undo
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => runMutation(() => api.redo())}>
-                Redo
-              </Button>
-            </div>
+          <div className="glass-panel flex flex-wrap items-center justify-end gap-3 px-4 py-3">
             <Badge variant="subtle">{isPending ? "Updating" : "Synced"}</Badge>
           </div>
         </div>
@@ -302,16 +282,14 @@ export function DashboardClient({
                 relatedTasks={relatedTasks}
                 order={order}
                 dependencyError={dependencyError}
-                error={error}
                 mode="panel"
                 onStatusChange={(nextStatus) => runMutation(() => api.updateTask(selectedTask.id, { status: nextStatus }))}
                 onToggleTimer={() => runMutation(() => (selectedTask.isTimerRunning ? api.stopTask(selectedTask.id) : api.startTask(selectedTask.id)))}
+                trackedLabel={formatTrackedDuration(getEffectiveTrackedMs(selectedTask, nowMs), selectedTask.isTimerRunning)}
                 onDelete={async () => {
                   await runMutation(() => api.deleteTask(selectedTask.id));
                   updateFilters({ task: "" });
                 }}
-                onUndo={() => runMutation(() => api.undo())}
-                onRedo={() => runMutation(() => api.redo())}
                 onOpenTask={(taskId) => updateFilters({ task: taskId })}
                 onClose={() => updateFilters({ task: "" })}
               />

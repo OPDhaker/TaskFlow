@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 
 import { Task, TaskStatus } from "../lib/api";
 import { cn } from "../lib/utils";
-import { formatDate, formatSeconds, priorityTone, statusLabel, statusOptions, typeLabel } from "../lib/tasks";
+import { formatDate, priorityLabel, priorityTone, statusLabel, statusOptions, typeLabel } from "../lib/tasks";
 import { DependencyPanel } from "./dependency-panel";
 import { NavDirectionLink } from "./nav-direction-link";
 import { Badge } from "./ui/badge";
@@ -17,29 +17,25 @@ export function TaskDetailView({
   relatedTasks,
   order,
   dependencyError,
-  error,
   mode,
   onStatusChange,
   onToggleTimer,
   onDelete,
-  onUndo,
-  onRedo,
   onOpenTask,
   onClose,
+  trackedLabel,
 }: {
   task: Task;
   relatedTasks: Task[];
   order: Task[];
   dependencyError: string | null;
-  error: string | null;
   mode: "page" | "panel";
   onStatusChange: (status: TaskStatus) => void;
   onToggleTimer: () => void;
   onDelete: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
   onOpenTask?: (id: string) => void;
   onClose?: () => void;
+  trackedLabel: string;
 }) {
   return (
     <div className={cn("flex flex-col gap-8", mode === "panel" ? "min-h-full" : "")}>
@@ -49,10 +45,10 @@ export function TaskDetailView({
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="subtle">{typeLabel[task.type]}</Badge>
               <span
-                className={cn("inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]", priorityTone[task.priority])}
+                className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.01em]", priorityTone[task.priority])}
                 style={{ viewTransitionName: `task-priority-${task.id}` }}
               >
-                {task.priority}
+                {priorityLabel[task.priority]}
               </span>
               <Badge variant="outline">{statusLabel[task.status]}</Badge>
             </div>
@@ -62,6 +58,11 @@ export function TaskDetailView({
                 {task.title}
               </h2>
               <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">{task.description || "No description."}</p>
+              <div className="flex flex-wrap gap-2">
+                {task.intervalDays ? <Badge variant="outline">Recurring {task.intervalDays} days</Badge> : null}
+                {task.deadlineHours ? <Badge variant="outline">Urgent {task.deadlineHours}h SLA</Badge> : null}
+                {task.nextOccurrence ? <Badge variant="outline">Next {formatDate(task.nextOccurrence)}</Badge> : null}
+              </div>
             </div>
           </div>
 
@@ -87,19 +88,15 @@ export function TaskDetailView({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <DetailMetric label="Due" value={formatDate(task.dueDate)} />
-          <DetailMetric label="Tracked" value={formatSeconds(task.timeSpentSeconds)} viewName={`task-timer-${task.id}`} />
-          <DetailMetric label="Created" value={formatDate(task.createdAt)} />
-          <DetailMetric label="Dependencies" value={String(task.dependsOn?.length ?? 0)} />
+        <div className="flex flex-wrap gap-2 text-sm">
+          <Badge variant="outline">Due {formatDate(task.dueDate)}</Badge>
+          <Badge variant="outline">
+            Tracked <span style={{ viewTransitionName: `task-timer-${task.id}` }}>{trackedLabel}</span>
+          </Badge>
+          <Badge variant="outline">Created {formatDate(task.createdAt)}</Badge>
+          <Badge variant="outline">Dependencies {String(task.dependsOn?.length ?? 0)}</Badge>
         </div>
       </section>
-
-      {error ? (
-        <div role="alert" className="glass-alert">
-          {error}
-        </div>
-      ) : null}
 
       <section className={cn("grid gap-6", mode === "panel" ? "xl:grid-cols-1" : "xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.72fr)]")}>
         <div className="flex flex-col gap-6">
@@ -138,19 +135,6 @@ export function TaskDetailView({
 
           <section className="glass-panel p-6">
             <div className="mb-6 flex flex-col gap-2">
-              <p className="eyebrow">Context</p>
-              <h3 className="section-title">Execution details</h3>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DetailMetric label="Recurring interval" value={task.intervalDays ? `${task.intervalDays} days` : "Not recurring"} />
-              <DetailMetric label="Urgent window" value={task.deadlineHours ? `${task.deadlineHours} hours` : "No urgent SLA"} />
-              <DetailMetric label="Next occurrence" value={task.nextOccurrence ? formatDate(task.nextOccurrence) : "Not scheduled"} />
-              <DetailMetric label="Type" value={typeLabel[task.type]} />
-            </div>
-          </section>
-
-          <section className="glass-panel p-6">
-            <div className="mb-6 flex flex-col gap-2">
               <p className="eyebrow">Related</p>
               <h3 className="section-title">Adjacent tasks</h3>
             </div>
@@ -163,7 +147,9 @@ export function TaskDetailView({
                       <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">{formatDate(item.dueDate)}</p>
                     </div>
-                    <Badge variant="outline">{item.priority}</Badge>
+                    <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.01em]", priorityTone[item.priority])}>
+                      {priorityLabel[item.priority]}
+                    </span>
                   </button>
                 ) : (
                   <NavDirectionLink key={item.id} href={`/tasks/${item.id}`} direction="forward" className="task-mini-row">
@@ -171,7 +157,9 @@ export function TaskDetailView({
                       <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">{formatDate(item.dueDate)}</p>
                     </div>
-                    <Badge variant="outline">{item.priority}</Badge>
+                    <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.01em]", priorityTone[item.priority])}>
+                      {priorityLabel[item.priority]}
+                    </span>
                   </NavDirectionLink>
                 ),
               )}
@@ -181,41 +169,8 @@ export function TaskDetailView({
 
         <div className="flex flex-col gap-6">
           <DependencyPanel tasks={order} error={dependencyError} />
-          <section className="glass-panel p-6">
-            <div className="mb-6 flex flex-col gap-2">
-              <p className="eyebrow">History</p>
-              <h3 className="section-title">Undo lane</h3>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={onUndo}>
-                Undo
-              </Button>
-              <Button variant="outline" onClick={onRedo}>
-                Redo
-              </Button>
-            </div>
-          </section>
         </div>
       </section>
-    </div>
-  );
-}
-
-function DetailMetric({
-  label,
-  value,
-  viewName,
-}: {
-  label: string;
-  value: string;
-  viewName?: string;
-}) {
-  return (
-    <div className="metric-strip">
-      <p className="eyebrow">{label}</p>
-      <p className="text-sm font-medium text-foreground sm:text-base" style={viewName ? { viewTransitionName: viewName } : undefined}>
-        {value}
-      </p>
     </div>
   );
 }

@@ -5,6 +5,7 @@
 
 #include "../src/manager/TaskManager.h"
 #include "../src/persistence/TaskRepository.h"
+#include "../src/utils/TimeUtils.h"
 
 int main() {
   TaskManager manager;
@@ -49,17 +50,30 @@ int main() {
   manager.updateTask(urgent->getId(), {{"status", "DONE"}});
   assert(manager.updateTask(dependent->getId(), {{"status", "IN_PROGRESS"}})->getStatus() == Status::IN_PROGRESS);
 
-  manager.startTaskTimer(basic->getId());
-  assert(manager.getTasks()[0]->isTimerRunning());
-  manager.stopTaskTimer(basic->getId());
-  assert(!manager.getTasks()[0]->isTimerRunning());
+  const auto started = manager.startTaskTimer(basic->getId());
+  assert(started->isTimerRunning());
+  const auto startedAt = started->toJson().value("activeStartedAt", "");
+  assert(!startedAt.empty());
+  assert(!manager.rollupRunningTimers(startedAt));
+  const auto rollupAt = time_utils::formatUtc(time_utils::parseUtc(startedAt) + std::chrono::seconds(3));
+  assert(manager.rollupRunningTimers(rollupAt));
+  const auto afterRollup = manager.getTasks();
+  const auto rolledIt = std::find_if(afterRollup.begin(), afterRollup.end(), [&](const auto& task) { return task->getId() == basic->getId(); });
+  assert(rolledIt != afterRollup.end());
+  assert((*rolledIt)->getTimeSpentSeconds() >= 3);
+  const auto once = (*rolledIt)->getTimeSpentSeconds();
+  assert(!manager.rollupRunningTimers(rollupAt));
+  const auto afterSecondRollup = manager.getTasks();
+  const auto rolledAgainIt = std::find_if(afterSecondRollup.begin(), afterSecondRollup.end(), [&](const auto& task) { return task->getId() == basic->getId(); });
+  assert(rolledAgainIt != afterSecondRollup.end());
+  assert((*rolledAgainIt)->getTimeSpentSeconds() == once);
+
+  const auto stopped = manager.stopTaskTimer(basic->getId());
+  assert(!stopped->isTimerRunning());
+  assert(stopped->toJson().value("activeStartedAt", "").empty());
 
   const auto beforeDelete = manager.getTasks().size();
   manager.removeTask(recurring->getId());
-  assert(manager.getTasks().size() == beforeDelete - 1);
-  manager.undoLast();
-  assert(manager.getTasks().size() == beforeDelete);
-  manager.redoLast();
   assert(manager.getTasks().size() == beforeDelete - 1);
 
   const auto ordered = manager.getTopologicalOrder();

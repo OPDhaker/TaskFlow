@@ -53,6 +53,7 @@ nlohmann::json Task::toBaseJson() const {
       {"createdAt", createdAt_},
       {"timeSpentSeconds", timeSpentSeconds_},
       {"isTimerRunning", isTimerRunning()},
+      {"activeStartedAt", activeStartedAt_},
   };
 }
 

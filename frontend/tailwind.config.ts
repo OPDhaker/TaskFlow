@@ -44,8 +44,8 @@ const config: Config = {
         pane: "0 24px 50px -24px rgba(15, 23, 42, 0.24)",
       },
       fontFamily: {
-        display: ["var(--font-display)"],
-        body: ["var(--font-body)"],
+        display: ["var(--font-sans)", "var(--font-display-fallback)"],
+        body: ["var(--font-sans)", "var(--font-body-fallback)"],
       },
       borderRadius: {
         lg: "var(--radius)",

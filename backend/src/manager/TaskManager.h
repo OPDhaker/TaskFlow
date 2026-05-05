@@ -2,22 +2,10 @@
 
 #include <memory>
 #include <queue>
-#include <stack>
 #include <string>
 #include <vector>
 
 #include "../models/TaskFactory.h"
-
-struct HistoryEntry {
-  std::string action;
-  std::vector<std::shared_ptr<Task>> before;
-  std::vector<std::shared_ptr<Task>> after;
-};
-
-struct RestoreResult {
-  std::string action;
-  std::size_t taskCount;
-};
 
 class TaskManager : public TaskExecutionContext {
  public:
@@ -30,8 +18,8 @@ class TaskManager : public TaskExecutionContext {
   void removeTask(const std::string& id);
   std::shared_ptr<Task> startTaskTimer(const std::string& id);
   std::shared_ptr<Task> stopTaskTimer(const std::string& id);
-  RestoreResult undoLast();
-  RestoreResult redoLast();
+  bool rollupRunningTimers(const std::string& nowIso = "");
+  bool hasRunningTimers() const;
   std::shared_ptr<Task> getNextPriority() const;
   std::vector<std::shared_ptr<Task>> getTopologicalOrder() const;
 
@@ -46,14 +34,10 @@ class TaskManager : public TaskExecutionContext {
   std::vector<std::shared_ptr<Task>> snapshot() const;
   std::shared_ptr<Task> findTaskOrThrow(const std::string& id) const;
   void rebuildPriorityQueue();
-  void recordHistory(const std::string& action, const std::vector<std::shared_ptr<Task>>& before, const std::vector<std::shared_ptr<Task>>& after);
-  void restoreFrom(const std::vector<std::shared_ptr<Task>>& state);
   void validateDependencies(const std::vector<std::shared_ptr<Task>>& tasks, const std::vector<std::string>& dependsOn, const std::string& selfId = "") const;
   void ensureAcyclic(const std::vector<std::shared_ptr<Task>>& tasks) const;
   bool dependencyReferencesTask(const std::string& taskId) const;
 
   std::vector<std::shared_ptr<Task>> tasks_;
   std::priority_queue<std::shared_ptr<Task>, std::vector<std::shared_ptr<Task>>, TaskCompare> priorityQueue_;
-  std::stack<HistoryEntry> undoStack_;
-  std::stack<HistoryEntry> redoStack_;
 };

@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Task, api } from "../lib/api";
+import { formatTrackedDuration, getEffectiveTrackedMs } from "../lib/tasks";
 import { setNavDirection } from "../lib/nav-direction";
 import { TaskDetailView } from "./task-detail-view";
 
@@ -21,7 +23,7 @@ export function TaskDetailClient({
   const [tasks, setTasks] = useState(initialTasks);
   const [order, setOrder] = useState(initialOrder);
   const [dependencyError, setDependencyError] = useState(initialDependencyError);
-  const [error, setError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const router = useRouter();
 
   const task = useMemo(() => tasks.find((item) => item.id === initialTask.id) ?? initialTask, [initialTask, tasks]);
@@ -36,7 +38,6 @@ export function TaskDetailClient({
 
   async function refreshAll() {
     try {
-      setError(null);
       let nextDependencyError: string | null = null;
       const [taskList, dependencyOrder] = await Promise.all([
         api.getTasks(),
@@ -49,19 +50,31 @@ export function TaskDetailClient({
       setOrder(dependencyOrder);
       setDependencyError(nextDependencyError);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
 
   async function runMutation(callback: () => Promise<unknown>) {
     try {
-      setError(null);
       await callback();
       await refreshAll();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      toast.error(reason instanceof Error ? reason.message : "Unknown error");
     }
   }
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 100);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!tasks.some((item) => item.isTimerRunning)) return;
+    const interval = window.setInterval(() => {
+      void refreshAll();
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [tasks]);
 
   return (
     <main id="main-content" className="workspace-main">
@@ -70,8 +83,8 @@ export function TaskDetailClient({
         relatedTasks={relatedTasks}
         order={order}
         dependencyError={dependencyError}
-        error={error}
         mode="page"
+        trackedLabel={formatTrackedDuration(getEffectiveTrackedMs(task, nowMs), task.isTimerRunning)}
         onStatusChange={(status) => runMutation(() => api.updateTask(task.id, { status }))}
         onToggleTimer={() => runMutation(() => (task.isTimerRunning ? api.stopTask(task.id) : api.startTask(task.id)))}
         onDelete={async () => {
@@ -79,8 +92,6 @@ export function TaskDetailClient({
           setNavDirection("back");
           router.push("/");
         }}
-        onUndo={() => runMutation(() => api.undo())}
-        onRedo={() => runMutation(() => api.redo())}
       />
     </main>
   );

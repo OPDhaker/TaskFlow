@@ -10,9 +10,8 @@ Frontend talks to `http://localhost:8080`.
 ## Features
 
 - Task class hierarchy: `Task`, `BasicTask`, `UrgentTask`, `RecurringTask`, `DependentTask`
-- OOP concepts: inheritance, polymorphism, `vector`, `stack`, `priority_queue`
-- Undo / redo via task snapshots
-- Timer start / stop with persisted elapsed time
+- OOP concepts: inheritance, polymorphism, `vector`, `priority_queue`
+- Realtime timer: live frontend ticking + backend periodic rollup/persist while running
 - Dependency ordering via Kahn topological sort
 - CSV export
 - Single-page kanban UI
@@ -115,6 +114,13 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
+If you see repeated `/_next/static/... 404` chunk errors, run:
+
+```bash
+cd frontend
+npm run dev:reset
+```
+
 ## Backend Test
 
 ### Unit-style C++ tests
@@ -157,8 +163,6 @@ npm run build
 - `DELETE /tasks/:id`
 - `POST /tasks/:id/start`
 - `POST /tasks/:id/stop`
-- `POST /undo`
-- `POST /redo`
 - `GET /tasks/next`
 - `GET /tasks/order`
 - `GET /export`
@@ -219,6 +223,20 @@ Check:
 - backend server running on `localhost:8080`
 - frontend running on `localhost:3000`
 - browser console for failed req
+
+### Repeating `/_next/static` 404 chunks
+
+Cause: dev and prod builds can conflict if you switch modes often.
+
+Fix:
+
+- this repo now isolates artifacts into `.next-dev` (dev) and `.next-prod` (build/start)
+- use reset scripts if an old process/cache is stuck:
+
+```bash
+cd frontend
+npm run dev:reset
+```
 
 ## Dev Rule
 
